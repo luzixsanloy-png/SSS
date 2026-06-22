@@ -41,7 +41,8 @@ def run_pipeline(topic: str | None = None) -> dict:
     script = ScriptGeneratorBot(config).generate(topic)
     logger.info(f"  Title   : {script.title}")
     logger.info(f"  Hook    : {script.hook}")
-    logger.info(f"  Facts   : {len(script.facts)} facts")
+    for beat in script.story_beats:
+        logger.info(f"  [{beat['beat'].upper():10}] {beat['text'][:60]}...")
     logger.info(f"  Tags    : {' '.join(script.hashtags)}")
 
     # ── Bot 2: Video ──────────────────────────────────────────────────────

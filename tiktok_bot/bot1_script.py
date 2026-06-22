@@ -1,10 +1,11 @@
 """
 Bot 1: Script Generator
-Uses Gemini AI to generate a fact-based TikTok script with voiceover and video prompt.
+Uses Gemini AI to generate a story-style TikTok script (hook → setup → twist → lesson)
+with a talking-head Veo prompt and voiceover text.
 """
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from google import genai
 from google.genai import types
@@ -16,32 +17,45 @@ from utils import setup_logger, retry
 @dataclass
 class ScriptData:
     title: str
-    hook: str           # First 3 seconds — attention grabber
-    facts: list[str]    # 3–5 punchy facts
-    voiceover: str      # Full TTS text (Thai)
+    hook: str                   # Opening line — scroll-stopper
+    story_beats: list[dict]     # [{"beat": "setup|conflict|twist|resolution", "text": "..."}]
+    voiceover: str              # Full continuous TTS text (Thai)
     hashtags: list[str]
-    veo_prompt: str     # English prompt for Veo video generation
-    tiktok_caption: str # Caption with title + hashtags
+    veo_prompt: str             # English prompt for Veo (talking head style)
+    tiktok_caption: str         # title + hashtags for TikTok post
 
 
 class ScriptGeneratorBot:
-    """Bot 1 — Generates fact scripts via Gemini."""
+    """Bot 1 — Generates story scripts via Gemini for talking-head TikTok clips."""
 
-    SYSTEM_PROMPT = """คุณคือ TikTok content creator ผู้เชี่ยวชาญสร้างคลิปความรู้สั้น ๆ ที่ viral
-สไตล์: สั้น กระชับ น่าตกใจ เข้าใจง่าย ดึงดูดคนไทย
-ตอบเป็น JSON เท่านั้น ห้ามมีข้อความอื่น"""
+    SYSTEM_PROMPT = (
+        "คุณคือ TikTok scriptwriter ระดับ viral ที่เชี่ยวชาญการเล่าเรื่องแบบ Storytelling "
+        "สำหรับคนไทย สไตล์: เหมือนคนเล่าให้เพื่อนฟัง ธรรมชาติ อารมณ์ลึก มี twist "
+        "ตอบเป็น JSON เท่านั้น ห้ามมีข้อความอื่น"
+    )
 
-    USER_TEMPLATE = """สร้างสคริปต์คลิป TikTok ความรู้ เรื่อง: "{topic}"
+    USER_TEMPLATE = """เขียนสคริปต์คลิป TikTok แบบ Storytelling เรื่อง: "{topic}"
 
-ต้องการ JSON ในรูปแบบนี้:
+ต้องการ JSON รูปแบบนี้:
 {{
-  "title": "ชื่อคลิปภาษาไทย (สั้น น่าสนใจ ≤60 ตัวอักษร)",
-  "hook": "ประโยคเปิดดึงดูดใน 3 วินาทีแรก (ภาษาไทย)",
-  "facts": ["fact1", "fact2", "fact3"],
-  "voiceover": "ข้อความบรรยายเสียงทั้งหมดภาษาไทย (15-20 วินาที ราบรื่น ไม่มีสัญลักษณ์พิเศษ)",
-  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"],
-  "veo_prompt": "Cinematic 9:16 vertical video for TikTok about {topic_en}. Style: modern, dynamic, visually stunning. 8 seconds. No text overlay. High quality."
-}}"""
+  "title": "ชื่อคลิปภาษาไทย น่าสนใจ ≤55 ตัวอักษร",
+  "hook": "ประโยคเปิด 1 ประโยค ดึงคนหยุดเลื่อนใน 2 วินาที — ต้องสร้างคำถามหรือความอยากรู้",
+  "story_beats": [
+    {{"beat": "setup",      "text": "แนะนำตัวละคร/สถานการณ์ (2-3 ประโยค)"}},
+    {{"beat": "conflict",   "text": "ปัญหาหรือจุดเปลี่ยน (2-3 ประโยค)"}},
+    {{"beat": "twist",      "text": "สิ่งที่ไม่มีใครคาด หรือ reveal ที่น่าตกใจ (1-2 ประโยค)"}},
+    {{"beat": "resolution", "text": "บทเรียน บทสรุป หรือ CTA กระตุ้นกดติดตาม (1-2 ประโยค)"}}
+  ],
+  "voiceover": "ข้อความบรรยายต่อเนื่องภาษาไทย ราบรื่น อ่านออกเสียงได้สะดวก ไม่มีสัญลักษณ์พิเศษ ความยาว 40-60 วินาที",
+  "hashtags": ["#เรื่องเล่า", "#เกร็ดความรู้", "#TikTokไทย", "#viral", "#ฟังเลย"],
+  "veo_prompt": "Vertical 9:16 video, close-up portrait of a confident young Thai presenter in their 20s speaking directly to camera, natural hand gestures, warm soft studio lighting, modern minimalist background, authentic engaging storytelling expression, shallow depth of field, no text overlay, 8 seconds"
+}}
+
+กฎสำคัญ:
+- hook ต้องทำให้คนอยากดูต่อ เช่น เริ่มด้วย "ถ้าคุณ...", "มีคนๆ หนึ่ง...", "ในปี...มีเหตุการณ์..."
+- voiceover ต้องเชื่อมทุก beat เป็นเรื่องเดียวกันลื่นไหล ไม่ขาดตอน
+- twist ต้องสร้าง aha moment จริงๆ
+- veo_prompt ให้ใส่ theme ของ "{topic_en}" ใน background หรือ wardrobe เล็กน้อย"""
 
     def __init__(self, config: Config):
         self.config = config
@@ -50,11 +64,8 @@ class ScriptGeneratorBot:
 
     @retry(max_attempts=4, backoff=2.0)
     def generate(self, topic: str) -> ScriptData:
-        self.logger.info(f"Generating script for topic: {topic}")
-
-        # Derive English topic for Veo prompt
-        topic_en = self._translate_topic_to_en(topic)
-
+        self.logger.info(f"Generating story script | topic: {topic}")
+        topic_en = self._to_english(topic)
         prompt = self.USER_TEMPLATE.format(topic=topic, topic_en=topic_en)
 
         response = self.client.models.generate_content(
@@ -62,39 +73,37 @@ class ScriptGeneratorBot:
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=self.SYSTEM_PROMPT,
-                temperature=0.8,
-                max_output_tokens=1024,
+                temperature=0.9,
+                max_output_tokens=1500,
             ),
         )
 
-        raw = response.text.strip()
-        data = self._parse_json(raw)
-        script = self._build_script(data)
+        data = self._parse_json(response.text.strip())
+        script = self._build(data)
         self.logger.info(f"Script ready: {script.title}")
+        self.logger.info(f"Hook: {script.hook}")
         return script
 
-    def _translate_topic_to_en(self, topic: str) -> str:
-        """Quick translation for Veo prompt (English only)."""
-        response = self.client.models.generate_content(
+    def _to_english(self, topic: str) -> str:
+        r = self.client.models.generate_content(
             model=self.config.GEMINI_MODEL,
-            contents=f"Translate this to English in 5 words or less: {topic}",
+            contents=f"Translate to English in 5 words or less: {topic}",
         )
-        return response.text.strip().strip('"')
+        return r.text.strip().strip('"')
 
     def _parse_json(self, raw: str) -> dict:
-        # Strip markdown code fences if present
         match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", raw)
         if match:
             raw = match.group(1)
         return json.loads(raw)
 
-    def _build_script(self, data: dict) -> ScriptData:
-        hashtags = data.get("hashtags", ["#ความรู้", "#TikTok", "#fact"])
+    def _build(self, data: dict) -> ScriptData:
+        hashtags = data.get("hashtags", ["#เรื่องเล่า", "#TikTok"])
         caption = data["title"] + "\n\n" + " ".join(hashtags)
         return ScriptData(
             title=data["title"],
             hook=data["hook"],
-            facts=data["facts"],
+            story_beats=data.get("story_beats", []),
             voiceover=data["voiceover"],
             hashtags=hashtags,
             veo_prompt=data["veo_prompt"],

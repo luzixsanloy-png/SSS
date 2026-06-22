@@ -15,10 +15,11 @@ class Config:
     TIKTOK_ACCESS_TOKEN: str = field(default_factory=lambda: os.getenv("TIKTOK_ACCESS_TOKEN", ""))
 
     # Bot settings
-    TOPIC: str = field(default_factory=lambda: os.getenv("TOPIC", "ความจริงน่าตกใจเกี่ยวกับวิทยาศาสตร์"))
+    TOPIC: str = field(default_factory=lambda: os.getenv("TOPIC", "เรื่องจริงที่ไม่มีใครเชื่อว่าเกิดขึ้น"))
     LANGUAGE: str = "th"  # Thai
     OUTPUT_DIR: str = "output"
-    VIDEO_DURATION: int = 8  # seconds (Veo max ~8s per clip)
+    # Veo generates 8s clips; Bot 2 loops them to match the full voiceover length (~40-60s)
+    VIDEO_DURATION: int = 8
     CHUNK_SIZE: int = 10 * 1024 * 1024  # 10MB chunks for TikTok upload
 
     # Veo video config
