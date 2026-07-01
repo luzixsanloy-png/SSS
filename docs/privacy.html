@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Privacy Policy — ClipFlow Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+  h1 { font-size: 1.6em; }
+  h2 { font-size: 1.15em; margin-top: 2em; }
+  footer { margin-top: 3em; font-size: 0.85em; color: #777; }
+</style>
+</head>
+<body>
+<h1>Privacy Policy</h1>
+<p><em>Last updated: 2026</em></p>
+
+<p>ClipFlow Studio ("the App") is a self-hosted application. Each user runs
+their own instance on their own computer or server; there is no shared,
+central service operated by a third party.</p>
+
+<h2>1. What data the App stores</h2>
+<ul>
+  <li>Product names, descriptions, and photos you upload.</li>
+  <li>Generated video clips and job status/history.</li>
+  <li>TikTok account tokens (access token, refresh token) obtained via
+  TikTok's official OAuth2 Login Kit, used only to publish videos on your
+  behalf via the TikTok Content Posting API.</li>
+</ul>
+<p>All of this data is stored locally in a SQLite database and local files
+on the machine running the App. It is not transmitted to any server
+operated by the App's developer.</p>
+
+<h2>2. Third-party services</h2>
+<p>The App calls two third-party APIs directly from your own machine,
+using credentials you provide:</p>
+<ul>
+  <li><strong>Google Gemini API</strong> — to generate/enhance images and
+  video from your product photos.</li>
+  <li><strong>TikTok API</strong> — to authenticate your TikTok account and
+  publish videos you choose to post.</li>
+</ul>
+<p>Data sent to these services is governed by Google's and TikTok's own
+privacy policies.</p>
+
+<h2>3. Data retention and deletion</h2>
+<p>Since all data is stored locally, you control retention. Deleting a
+product or job in the App removes its associated files and database
+records. Disconnecting a TikTok account removes its stored tokens.</p>
+
+<h2>4. Contact</h2>
+<p>For questions about this policy, contact the person operating this
+instance of the App.</p>
+
+<footer>ClipFlow Studio</footer>
+</body>
+</html>
