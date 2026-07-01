@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Play, Plus } from "lucide-react";
+import { Play, Plus, Wand2 } from "lucide-react";
 import JobsTable from "@/components/JobsTable";
 import { IMAGE_MODELS, VIDEO_MODELS, ASPECT_RATIOS } from "@/lib/modelOptions";
 import type { Product, VideoJobWithProduct } from "@/lib/types";
@@ -26,6 +26,7 @@ export default function GeneratePage() {
   const [caption, setCaption] = useState("");
   const [tiktokAccountId, setTiktokAccountId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [message, setMessage] = useState("");
 
   async function loadAll() {
@@ -91,6 +92,22 @@ export default function GeneratePage() {
   async function handleRun() {
     await fetch("/api/jobs/run", { method: "POST" });
     setMessage("Queue processing started — check progress below.");
+  }
+
+  async function handleSuggest() {
+    if (!productId) return;
+    setSuggesting(true);
+    setMessage("");
+    const res = await fetch(`/api/products/${productId}/suggest`, { method: "POST" });
+    const data = await res.json();
+    setSuggesting(false);
+    if (res.ok) {
+      setPrompt(data.suggestion.videoPrompt);
+      setCaption(`${data.suggestion.caption}\n\n${data.suggestion.hashtags.join(" ")}`);
+      setMessage("Claude filled in the prompt and caption below.");
+    } else {
+      setMessage(data.error || "Failed to generate suggestion.");
+    }
   }
 
   return (
@@ -181,9 +198,20 @@ export default function GeneratePage() {
           </div>
 
           <div>
-            <label className="block text-xs text-[var(--muted)] mb-1.5">
-              Prompt (how to enhance the photo &amp; animate it)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs text-[var(--muted)]">
+                Prompt (how to enhance the photo &amp; animate it)
+              </label>
+              <button
+                type="button"
+                onClick={handleSuggest}
+                disabled={suggesting || !productId}
+                className="inline-flex items-center gap-1.5 text-xs text-[var(--accent-2)] hover:underline disabled:opacity-50"
+              >
+                <Wand2 size={12} />
+                {suggesting ? "Asking Claude..." : "Auto-suggest with Claude"}
+              </button>
+            </div>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
